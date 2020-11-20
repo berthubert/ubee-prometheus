@@ -17,6 +17,7 @@ No matter how often prometheus polls, ubee-prometheus will only poll your Ubee m
 This also means that at startup, the prometheus URL will serve empty data, until the modem has delivered statistics.
 
 The statistics extracted are:
+
     * SNR for downstream
     * Power for up and downstream
     * Frequency for up and downstream

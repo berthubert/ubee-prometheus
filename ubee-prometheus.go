@@ -79,8 +79,8 @@ func doUSField(value string, proname string, id int, description string, protype
 func getPrometheus() string {
 	var ret string
 	
-	//	resp, err := http.Get("http://192.168.178.1/htdocs/cm_info_connection.php")
-	resp, err := http.Get("https://berthub.eu/tmp/cm_info_connection.php")
+	resp, err := http.Get("http://192.168.178.1/htdocs/cm_info_connection.php")
+	//resp, err := http.Get("https://berthub.eu/tmp/cm_info_connection.php")
 	if err != nil {
 		log.Fatalln("Error reading response from modem " + err.Error())
 		return ""
@@ -148,34 +148,20 @@ var promStatus string
 
 func updateLoop() {
 	for {
-		fmt.Println("Update")
 		tmp := getPrometheus()
-		fmt.Println("Got update")
-		{
-			fmt.Println("Getting lock for update")			
-			promMutex.Lock()
-			defer promMutex.Unlock()		
-			promStatus = tmp
-			fmt.Println("Got it")			
-		}
-		
-
+		promMutex.Lock()
+		promStatus = tmp
+		promMutex.Unlock()		
 		time.Sleep(60 * time.Second)
 	}
 }
 
 func handler(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("Web request")
 	var tmp string
-	{
-		fmt.Println("Getting the lock")
-		promMutex.Lock()
-		fmt.Println("Got the lock")
-		defer promMutex.Unlock()
-		fmt.Println("Assigning")		
-		tmp = promStatus
-	}
-	fmt.Println("  Got data")
+	
+	promMutex.Lock()
+	tmp = promStatus
+	promMutex.Unlock()
 
 	fmt.Fprintf(w, "%s", tmp)
 }

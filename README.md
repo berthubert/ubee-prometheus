@@ -4,6 +4,8 @@ If you have a Ubee modem of the kind used by Ziggo in The Netherlands, this smal
 
 It works at least on the Ubee UBC1318.
 
+![Sample Grafana (through Prometheus)](doc/images/demo.png)
+
 To run, compile ('go build') and launch the binary.
 
 This will periodically poll the modem, which is assumed to be reachable on http://192.168.178.1/ and then keep the results ready for Prometheus.

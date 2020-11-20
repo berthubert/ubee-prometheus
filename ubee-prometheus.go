@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"log"
 )
 
 type DSStatus struct {
@@ -37,18 +38,59 @@ type CMInfo struct {
 	Cm_conn_us_gourpObj  []USStatus
 }
 
-func main() {
-	resp, err := http.Get("http://192.168.178.1/htdocs/cm_info_connection.php")
-	//	resp, err := http.Get("https://berthub.eu/tmp/cm_info_connection.php")
+//! Create a prometheus line for DS
+func doDSField(value string, proname string, id int, description string, protype string, factor float64) string {
+	ret := ""
+
+	name := "cable_downstream_"+proname;
+	ret += "# HELP "+name+" "+description+"\n"
+	ret += "# TYPE "+name+" "+protype+"\n"
+	
+	if flval, err := strconv.ParseFloat(value, 32) ; err == nil {
+		ret += fmt.Sprintf("%s{id=\"%d\"} %f\n", name, id, flval*factor)
+	} else {
+		log.Fatalln("Unable to convert value: "+err.Error())
+		return ""
+	}
+	return ret
+}
+
+
+//! Create a prometheus line for US
+func doUSField(value string, proname string, id int, description string, protype string) string {
+	ret := ""
+
+	name := "cable_upstream_"+proname;
+	ret += "# HELP "+name+" "+description+"\n"
+	ret += "# TYPE "+name+" "+protype+"\n"
+	
+	if flval, err := strconv.ParseFloat(value, 32) ; err == nil {
+		ret += fmt.Sprintf("%s{id=\"%d\"} %f\n", name, id, flval)
+	} else {
+		log.Fatalln("Unable to convert value: "+err.Error())
+		return ""
+	}
+	return ret
+}
+
+
+func getPrometheus() string {
+	var ret string
+	
+	//	resp, err := http.Get("http://192.168.178.1/htdocs/cm_info_connection.php")
+	resp, err := http.Get("https://berthub.eu/tmp/cm_info_connection.php")
 	if err != nil {
-		panic(err)
+		log.Fatalln("Error reading response from modem " + err.Error())
+		return ""
 	}
 
 	defer resp.Body.Close()
 
 	content, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		panic(err)
+		//		panic(err)
+		log.Fatalln("Error reading response from modem " + err.Error())
+		return ""
 	}
 
 	lines := strings.Split(strings.Replace(string(content), "\r\n", "\n", -1), "\n")
@@ -61,77 +103,45 @@ func main() {
 			var f CMInfo
 			err := json.Unmarshal([]byte(lejson), &f)
 			if err != nil {
-				panic(err)
+				log.Fatalln("Error parsing JSON from modem " + err.Error())
+				return ""
 			}
 
 			for _, ds := range f.Cm_conn_ds_gourpObj {
-				if flval, err := strconv.ParseFloat(ds.Ds_snr, 32); err == nil {
-					fmt.Println("# HELP cable_downstream_snr Signal to noise ratio of this channel")
-					fmt.Println("# TYPE cable_downstream_snr gauge")
-					fmt.Printf("cable_downstream_snr{id=\"%s\"} %f\n", ds.Ds_id, flval/10)
+				id, err := strconv.Atoi(ds.Ds_id)
+				if(err != nil) {
+					log.Fatalln("Error parsing downstream id "+ err.Error())
+					return ""
 				}
-				if flval, err := strconv.ParseFloat(ds.Ds_power, 32); err == nil {
-					fmt.Println("# HELP cable_downstream_power Power of this channel")
-					fmt.Println("# TYPE cable_downstream_power gauge")
-					fmt.Printf("cable_downstream_power{id=\"%s\"} %f\n", ds.Ds_id, flval/10)
-				}
-				if flval, err := strconv.ParseFloat(ds.Ds_correct, 32); err == nil {
-					fmt.Println("# HELP cable_downstream_correct Correctable errors")
-					fmt.Println("# TYPE cable_downstream_correct counter")
-					fmt.Printf("cable_downstream_correct{id=\"%s\"} %f\n", ds.Ds_id, flval)
-				}
-				if flval, err := strconv.ParseFloat(ds.Ds_uncorrect, 32); err == nil {
-					fmt.Println("# HELP cable_downstream_uncorrect Uncorrectable errors")
-					fmt.Println("# TYPE cable_downstream_uncorrect counter")
-					fmt.Printf("cable_downstream_uncorrect{id=\"%s\"} %f\n", ds.Ds_id, flval)
-				}
-				if flval, err := strconv.ParseFloat(ds.Ds_freq, 32); err == nil {
-					fmt.Println("# HELP cable_downstream_freq Frequency of this channel")
-					fmt.Println("# TYPE cable_downstream_freq gauge")
-					fmt.Printf("cable_downstream_freq{id=\"%s\"} %f\n", ds.Ds_id, flval/10)
-				}
-				if flval, err := strconv.ParseFloat(ds.Ds_modulation, 32); err == nil {
-					fmt.Println("# HELP cable_downstream_modulation Modulation of this channel")
-					fmt.Println("# TYPE cable_downstream_modulation gauge")
-					fmt.Printf("cable_downstream_modulation{id=\"%s\"} %f\n", ds.Ds_id, flval/10)
-				}
-
+				ret += doDSField(ds.Ds_snr, "snr", id,  "Signal to noise ratio of this channel", "gauge", 0.1)
+				ret += doDSField(ds.Ds_power, "power", id,  "Power of this channel", "gauge", 1.0)
+				ret += doDSField(ds.Ds_correct, "correct", id,  "Correctable errors", "counter", 1.0)
+				ret += doDSField(ds.Ds_uncorrect, "uncorrect", id,  "Uncorrectable errors", "counter", 1.0)
+				ret += doDSField(ds.Ds_freq, "freq", id,  "Frequency of this channel", "gauge", 1.0)
+				ret += doDSField(ds.Ds_width, "width", id,  "Width of this channel", "gauge", 1.0)
+				ret += doDSField(ds.Ds_modulation, "modulation", id,  "Modulation of this channel", "gauge", 1.0)
 			}
 
 			for _, us := range f.Cm_conn_us_gourpObj {
-				if flval, err := strconv.ParseFloat(us.Us_power, 32); err == nil {
-					fmt.Println("# HELP cable_upstream_power Power on this channel")
-					fmt.Println("# TYPE cable_upstream_power gauge")
-					fmt.Printf("cable_upstream_power{id=\"%s\"} %f\n", us.Us_id, flval)
-				}
-				if flval, err := strconv.ParseFloat(us.Us_status, 32); err == nil {
-					fmt.Println("# HELP cable_upstream_status Status of this channel")
-					fmt.Println("# TYPE cable_upstream_status gauge")
-					fmt.Printf("cable_upstream_status{id=\"%s\"} %f\n", us.Us_id, flval)
-				}
-				if flval, err := strconv.ParseFloat(us.Us_type, 32); err == nil {
-					fmt.Println("# HELP cable_upstream_type Type of this channel")
-					fmt.Println("# TYPE cable_upstream_type gauge")
-					fmt.Printf("cable_upstream_type{id=\"%s\"} %f\n", us.Us_id, flval)
-				}
-				if flval, err := strconv.ParseFloat(us.Us_freq, 32); err == nil {
-					fmt.Println("# HELP cable_upstream_freq Freq of this channel")
-					fmt.Println("# TYPE cable_upstream_freq gauge")
-					fmt.Printf("cable_upstream_freq{id=\"%s\"} %f\n", us.Us_id, flval)
-				}
-				if flval, err := strconv.ParseFloat(us.Us_width, 32); err == nil {
-					fmt.Println("# HELP cable_upstream_width Width of this channel")
-					fmt.Println("# TYPE cable_upstream_width gauge")
-					fmt.Printf("cable_upstream_width{id=\"%s\"} %f\n", us.Us_id, flval)
-				}
-				if flval, err := strconv.ParseFloat(us.Us_modulation, 32); err == nil {
-					fmt.Println("# HELP cable_upstream_modulation Modulation of this channel")
-					fmt.Println("# TYPE cable_upstream_modulation gauge")
-					fmt.Printf("cable_upstream_modulation{id=\"%s\"} %f\n", us.Us_id, flval)
+				id, err := strconv.Atoi(us.Us_id)
+				if(err != nil) {
+					log.Fatalln("Error parsing upstream id "+ err.Error())
+					return ""
 				}
 
+				ret += doUSField(us.Us_power, "power", id,  "Power of this channel", "gauge")
+				ret += doUSField(us.Us_status, "status", id,  "Status of this channel", "gauge")
+				ret += doUSField(us.Us_type, "type", id,  "Type of this channel", "gauge")
+				ret += doUSField(us.Us_freq, "freq", id,  "Frequency of this channel", "gauge")
+				ret += doUSField(us.Us_width, "width", id,  "Width of this channel", "gauge")
+				ret += doUSField(us.Us_modulation, "modulation", id,  "Modulation of this channel", "gauge")
 			}
-
 		}
 	}
+	return ret
+}
+
+
+func main() {
+	fmt.Printf("%s", getPrometheus())
 }

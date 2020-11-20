@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 	"log"
 )
 
@@ -141,7 +143,47 @@ func getPrometheus() string {
 	return ret
 }
 
+var promMutex = &sync.Mutex{}
+var promStatus string
+
+func updateLoop() {
+	for {
+		fmt.Println("Update")
+		tmp := getPrometheus()
+		fmt.Println("Got update")
+		{
+			fmt.Println("Getting lock for update")			
+			promMutex.Lock()
+			defer promMutex.Unlock()		
+			promStatus = tmp
+			fmt.Println("Got it")			
+		}
+		
+
+		time.Sleep(60 * time.Second)
+	}
+}
+
+func handler(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("Web request")
+	var tmp string
+	{
+		fmt.Println("Getting the lock")
+		promMutex.Lock()
+		fmt.Println("Got the lock")
+		defer promMutex.Unlock()
+		fmt.Println("Assigning")		
+		tmp = promStatus
+	}
+	fmt.Println("  Got data")
+
+	fmt.Fprintf(w, "%s", tmp)
+}
+
 
 func main() {
-	fmt.Printf("%s", getPrometheus())
+	go updateLoop()
+	http.HandleFunc("/metrics", handler)
+	log.Fatal(http.ListenAndServe(":10000", nil))
+	
 }

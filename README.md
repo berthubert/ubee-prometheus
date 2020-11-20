@@ -18,14 +18,14 @@ This also means that at startup, the prometheus URL will serve empty data, until
 
 The statistics extracted are:
 
-    * SNR for downstream
-    * Power for up and downstream
-    * Frequency for up and downstream
-    * Width for up and downstream
-    * Modulation for up and downstream
-    * "Type" for upstream
-    * Correctable errors for downstream
-    * Uncorrectable errors for downstream
+ * SNR for downstream
+ * Power for up and downstream
+ * Frequency for up and downstream
+ * Width for up and downstream
+ * Modulation for up and downstream
+ * "Type" for upstream
+ * Correctable errors for downstream
+ * Uncorrectable errors for downstream
 
 
 

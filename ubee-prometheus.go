@@ -136,7 +136,7 @@ func getPrometheus() string {
 				ret += doUSField(us.Us_type, "type", id,  "Type of this channel", "gauge")
 				ret += doUSField(us.Us_freq, "freq", id,  "Frequency of this channel", "gauge")
 				ret += doUSField(us.Us_width, "width", id,  "Width of this channel", "gauge")
-				ret += doUSField(us.Us_modulation, "modulation", id,  "Modulation of this channel", "gauge")
+				ret += doUSField(strings.Fields(us.Us_modulation)[0], "modulation", id,  "Modulation of this channel", "gauge")
 			}
 		}
 	}
